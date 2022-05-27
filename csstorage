@@ -1,0 +1,1 @@
+New-AzStorageAccount -ResourceGroupName dishika -Name dishika09 -Location "East US" -SkuName Standard_LRS
