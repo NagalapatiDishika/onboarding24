@@ -1,0 +1,345 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "VMUsername": {
+      "defaultValue": "dishika12",
+      "type": "String",
+      "metadata": {
+        "description": "Administrator Username for the admin account"
+      }
+    },
+    "VMPassword": {
+      "type": "SecureString",
+      "metadata": {
+        "description": "Administrator password for the admin account"
+      }
+    },
+    "VMName": {
+      "defaultValue": "dishika",
+      "maxLength": 20,
+      "type": "String",
+      "metadata": {
+        "description": "Name of the virtual machine to be created"
+      }
+    },
+    "VMCount": {
+      "defaultValue": 3,
+      "type": "Int",
+      "metadata": {
+        "description": "Number of  virtual machines to be created"
+      }
+    },
+    "VMSize": {
+      "defaultValue": "Standard_D2s_v3",
+      "type": "String",
+      "metadata": {
+        "description": "Size of the virtual machine."
+      }
+    },
+    "OSVersion": {
+      "defaultValue": "2019-datacenter-gensecond",
+      "allowedValues": [
+        "2019-datacenter-gensecond",
+        "2019-datacenter-core-gensecond",
+        "2019-datacenter-core-with-containers-gensecond",
+        "2019-datacenter-with-containers-gensecond", 
+        "2016-datacenter-gensecond"
+      ],
+      "type": "String",
+      "metadata": {
+        "description": "The Windows version for the VM. This will pick a fully patched Gen2 image of this given Windows version."
+      }
+    },
+    "avSetName": {
+      "defaultValue": "dishikaavset",
+      "type": "String",
+      "metadata": {
+        "description": "Availability Set Name where the VM will be placed"
+      }
+    },
+    "dnsName": {
+      "defaultValue": "dishikaip",
+      "minLength": 1,
+      "maxLength": 14,
+      "type": "String",
+      "metadata": {
+        "description": "Globally unique DNS prefix for the Public IPs used to access the Virtual Machines"
+      }
+    },
+    "location": {
+      "defaultValue": "[resourceGroup().location]",
+      "type": "String",
+      "metadata": {
+        "description": "Location for all resources."
+      }
+    },
+    "sqlserverName": {
+      "type": "string",
+      "defaultValue": "[uniqueString('drsql', resourceGroup().id)]",
+      "metadata": {
+        "description": "The name of the SQL server."
+      }
+    },
+    "sqlDBName": {
+      "type": "string",
+      "defaultValue": "sd",
+      "metadata": {
+        "description": "The name of the SQL Database."
+      }
+    },
+    "sqledition": {
+      "type": "string",
+      "defaultValue": "Standard_Gen5",
+      "allowedValues": [
+        "Standard_Gen5",
+        "Standard_Gen4",
+        "Basic",
+        "Enterprise"
+      ]
+    },
+    "adminloginId": {
+      "type": "string",
+      "metadata": {
+        "description": "Login username for server"
+      }
+
+    },
+    "adminloginIdpassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Login Password for server"
+      }
+    }
+  },
+  "variables": {
+    "vnetname": "drvnet",
+    "vnetprefix": "10.0.0.0/16",
+    "subnetname": "drsub",
+    "subnetprefix": "10.0.0.0/24",
+	"imagePublisher": "MicrosoftWindowsServer",
+	"imageOffer": "WindowsServer",
+    "StorageAccountName": "[concat('dishika', uniqueString(resourceGroup().id))]",
+    "availabilitySetPlatformFaultDomainCount": "2",
+    "availabilitySetPlatformUpdateDomainCount": "5",
+    "subnetRef": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetname'),  variables('subnetname'))]"
+  },
+  "resources": [
+    {
+      "name": "[variables('vnetname')]",
+      "type": "Microsoft.Network/virtualNetworks",
+      "location": "[parameters('location')]",
+      "apiVersion": "2021-02-01",
+      "dependsOn": [],
+      "tags": {
+        "displayName": "[variables('vnetname')]"
+      },
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('vnetprefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('subnetname')]",
+            "properties": {
+              "addressPrefix": "[variables('subnetprefix')]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[variables('StorageAccountName')]",
+      "type": "Microsoft.Storage/storageAccounts",
+      "location": "[parameters('location')]",
+      "apiVersion": "2021-04-01",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "dependsOn": [],
+      "tags": {
+        "displayName": "StorageAccount"
+      },
+      "kind": "Storage"
+    },
+    {
+      "type": "Microsoft.Compute/availabilitySets",
+      "name": "[parameters('avSetName')]",
+      "apiVersion": "2021-03-01",
+      "location": "[parameters('location')]",
+      "properties": {
+        "platformFaultDomainCount": "[variables('availabilitySetPlatformFaultDomainCount')]",
+        "platformUpdateDomainCount": "[variables('availabilitySetPlatformUpdateDomainCount')]"
+      },
+      "sku": {
+        "name": "Aligned"
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[concat(parameters('VMName'), copyIndex(1))]",
+      "apiVersion": "2021-03-01",
+      "location": "[parameters('location')]",
+      "copy": {
+        "name": "VMcopy",
+        "count": "[parameters('VMCount')]"
+      },
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[parameters('VMSize')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('imagePublisher')]",
+            "offer": "[variables('imageOffer')]",
+            "sku": "[parameters('OSVersion')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "name": "[concat(parameters('VMName'),copyIndex(1))]",
+            "createOption": "FromImage",
+            "managedDisk": {
+              "storageAccountType": "Premium_LRS"
+            },
+            "caching": "ReadWrite"
+          }
+        },
+        "osProfile": {
+          "computerName": "[concat(parameters('VMName'),copyIndex(1))]",
+          "adminUsername": "[parameters('VMUsername')]",
+          "secrets": [],
+          "adminPassword": "[parameters('VMPassword')]"
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', concat(parameters('VMName'), copyIndex(1), 'nic'))]"
+            }
+          ]
+        },
+        "availabilitySet": {
+          "id": "[resourceId('Microsoft.Compute/availabilitySets', parameters('avSetName'))]"
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": true,
+            "storageUri": "[reference(resourceId('Microsoft.Storage/storageAccounts', variables('StorageAccountName')), '2021-04-01').primaryEndpoints.blob]"
+          }
+        }
+      },
+      "dependsOn": [
+        "[concat('Microsoft.Compute/availabilitySets/', parameters('avSetName'))]",
+        "[concat('Microsoft.Storage/storageAccounts/', variables('StorageAccountName'))]",
+        "[resourceId('Microsoft.Network/networkInterfaces', concat(parameters('VMName'), copyIndex(1), 'nic'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[concat(parameters('VMName'), copyIndex(1), 'nic')]",
+      "apiVersion": "2021-02-01",
+      "location": "[parameters('location')]",
+      "copy": {
+        "name": "NICCopy",
+        "count": "[parameters('VMCount')]"
+      },
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', concat(parameters('VMName'), copyIndex(1), 'pip'))]"
+              },
+              "subnet": {
+                "id": "[variables('subnetRef')]"
+              }
+            }
+          }
+        ],
+        "dnsSettings": {
+          "dnsServers": []
+        },
+        "enableIPForwarding": false
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', concat(parameters('VMName'), copyIndex(1), 'pip'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks/', variables('vnetname'))]"
+      ]
+    },
+    {
+    "type": "Microsoft.Compute/virtualMachines/extensions",
+        "apiVersion": "2018-06-01",
+        "name": "[concat(parameters('VMName'),copyIndex(1),'/CustomScriptExtension')]",
+        "location": "[resourceGroup().location]",
+        "dependsOn": [
+          "VMcopy",
+          "NICCopy"
+        ],
+        "tags": {
+            "displayName": "CustomScriptExtension"
+        },
+        "properties": {
+          "publisher": "Microsoft.Compute",
+          "type": "CustomScriptExtension",
+          "typeHandlerVersion": "1.10",
+          "settings": {
+            "timestamp":123456789
+        },
+          "protectedsettings": {
+            "commandToExecute": "Powershell.exe -ExecutionPolicy Unrestricted -File csex.ps1",
+            "fileUris": [
+              "https://dishika.blob.core.windows.net/csexe/csex.ps1"
+            ]
+          }
+        }
+    },
+    {
+      "apiVersion": "2021-02-01",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[concat(parameters('VMName'), copyIndex(1), 'pip')]",
+      "location": "[parameters('location')]",
+      "copy": {
+        "name": "PIPCopy",
+        "count": "[parameters('VMCount')]"
+      },
+      "tags": {
+        "displayName": "[concat(parameters('VMName'), copyIndex(1), 'pip')]"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Dynamic",
+        "dnsSettings": {
+          "domainNameLabel": "[concat(parameters('dnsName'), copyIndex(1))]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Sql/servers",
+      "apiVersion": "2020-02-02-preview",
+      "name": "[parameters('sqlserverName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "administratorLogin": "[parameters('adminloginId')]",
+        "administratorLoginPassword": "[parameters('adminloginIdpassword')]"
+      },
+
+      "resources": [
+        {
+          "type": "databases",
+          "apiVersion": "2020-02-02-preview",
+          "name": "[parameters('sqlDBname')]",
+          "location": "[parameters('location')]",
+          "properties": {
+            "edition": "[parameters('sqledition')]"
+          },
+          "dependsOn": [
+            "[resourceId('Microsoft.Sql/servers', parameters('sqlserverName'))]"
+          ] 
+        }
+      ]
+    }
+  ],
+  "outputs": {}
+}
