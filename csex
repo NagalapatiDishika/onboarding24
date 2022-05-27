@@ -270,7 +270,7 @@
       ]
     },
     {
-    "type": "Microsoft.Compute/virtualMachines/extensions",
+        "type": "Microsoft.Compute/virtualMachines/extensions",
         "apiVersion": "2018-06-01",
         "name": "[concat(parameters('VMName'),copyIndex(1),'/CustomScriptExtension')]",
         "location": "[resourceGroup().location]",
@@ -291,11 +291,15 @@
           "protectedsettings": {
             "commandToExecute": "Powershell.exe -ExecutionPolicy Unrestricted -File csex.ps1",
             "fileUris": [
-              "https://dishika.blob.core.windows.net/csexe/csex.ps1"
+              "https://ndr098.blob.core.windows.net/csedgenstorage/csex.ps1"
             ]
           }
+        },
+        "copy": {
+          "name": "STNEDCOPY",
+          "count": "[parameters('VMCount')]"
         }
-    },
+      },
     {
       "apiVersion": "2021-02-01",
       "type": "Microsoft.Network/publicIPAddresses",
