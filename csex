@@ -289,9 +289,9 @@
             "timestamp":123456789
         },
           "protectedsettings": {
-            "commandToExecute": "Powershell.exe -ExecutionPolicy Unrestricted -File csex.ps1",
+            "commandToExecute": "Powershell.exe -ExecutionPolicy Unrestricted -File scptnw.ps1",
             "fileUris": [
-              "https://ndr098.blob.core.windows.net/csedgenstorage/csex.ps1"
+              "https://rainbow01.blob.core.windows.net/pscs/scptnw.ps1"
             ]
           }
         },
